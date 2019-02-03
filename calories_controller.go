@@ -95,8 +95,6 @@ func caloriesCreateHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  log.Printf("%v", body)
-
   query := `
     INSERT INTO calories (date, bmr, calories_in, calories_out) 
     VALUES ($1, $2, $3, $4)
