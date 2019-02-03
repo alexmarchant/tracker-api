@@ -1,0 +1,46 @@
+image: ubuntu:18.04
+
+services:
+  - docker:dind
+
+variables:
+  CONTAINER_IMAGE: registry.gitlab.com/$CI_PROJECT_PATH
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+
+cache:
+  paths:
+    - /apt-cache
+
+stages:
+  - build
+  - release
+
+before_script:
+  # Deps
+  - apt-get update
+  - apt-get install -y curl apt-transport-https
+  # install docker
+  - curl -fsSL https://get.docker.com -o get-docker.sh
+  - sh get-docker.sh
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
+  # Install kubectl
+  - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+  - apt-get update
+  - apt-get install -y kubectl
+  # Spit out kube config
+  - echo "${KUBECONFIG}" | base64 -d >> kubeconfig.yml
+
+build:
+  stage: build
+  script:
+    - docker pull $CONTAINER_IMAGE:latest || true
+    - docker build --cache-from $CONTAINER_IMAGE:latest --tag $CONTAINER_IMAGE:$CI_COMMIT_SHA --tag $CONTAINER_IMAGE:latest .
+    - docker push $CONTAINER_IMAGE:$CI_COMMIT_SHA
+    - docker push $CONTAINER_IMAGE:latest
+
+release:
+  stage: release
+  script:
+    - kubectl --kubeconfig="kubeconfig.yml" patch deployment api -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
