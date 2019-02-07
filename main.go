@@ -15,7 +15,7 @@ func main() {
   connectDB()
 
   // Routes
-  caloriesHandler(r)
+  daysHandler(r)
 
   // CORS
   cors := cors.New(cors.Options{

@@ -15,28 +15,28 @@ type day struct {
   CaloriesOut *int `json:"caloriesOut,omitempty"`
 }
 
-type caloriesReadResponse struct {
+type daysReadResponse struct {
   Days []*day `json:"days"`
 }
 
-type caloriesCreateRequest struct {
+type daysCreateRequest struct {
   Bmr *int `json:"bmr,omitempty"`
   CaloriesIn *int `json:"caloriesIn,omitempty"`
   CaloriesOut *int `json:"caloriesOut,omitempty"`
 }
 
-func caloriesHandler(r *mux.Router) {
-  r.HandleFunc("/calories/{year:[0-9]+}/{month:[0-9]+}", caloriesIndexHandler).Methods("GET")
-  r.HandleFunc("/calories/{year:[0-9]+}/{month:[0-9]+}/{day:[0-9]+}", caloriesCreateHandler).Methods("POST")
+func daysHandler(r *mux.Router) {
+  r.HandleFunc("/days/{year:[0-9]+}/{month:[0-9]+}", daysIndexHandler).Methods("GET")
+  r.HandleFunc("/days/{year:[0-9]+}/{month:[0-9]+}/{day:[0-9]+}", daysCreateHandler).Methods("POST")
 }
 
-func caloriesIndexHandler(w http.ResponseWriter, r *http.Request) {
+func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
   vars := mux.Vars(r)
 
   // Get calories
   query := `
     SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out
-    FROM calories
+    FROM days
     WHERE EXTRACT(YEAR FROM date) = $1 and EXTRACT(MONTH FROM date) = $2
   `
   rows, err := db.Query(
@@ -76,17 +76,17 @@ func caloriesIndexHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   // Respond
-  response := caloriesReadResponse{ Days: days }
+  response := daysReadResponse{ Days: days }
   w.WriteHeader(http.StatusOK)
   sendJson(w, response)
 }
 
-func caloriesCreateHandler(w http.ResponseWriter, r *http.Request) {
+func daysCreateHandler(w http.ResponseWriter, r *http.Request) {
   vars := mux.Vars(r)
 
   // Parse request
   decoder := json.NewDecoder(r.Body)
-  var body caloriesCreateRequest
+  var body daysCreateRequest
   err := decoder.Decode(&body)
   if err != nil {
     w.WriteHeader(http.StatusBadRequest)
@@ -96,13 +96,13 @@ func caloriesCreateHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   query := `
-    INSERT INTO calories (date, bmr, calories_in, calories_out) 
+    INSERT INTO days (date, bmr, calories_in, calories_out) 
     VALUES ($1, $2, $3, $4)
     ON CONFLICT (date) DO UPDATE 
       SET date = excluded.date, 
-          bmr = excluded.bmr,
-          calories_in = excluded.calories_in,
-          calories_out = excluded.calories_out;
+        bmr = excluded.bmr,
+        calories_in = excluded.calories_in,
+        calories_out = excluded.calories_out;
   `
   date := fmt.Sprintf("%s/%s/%s", vars["month"], vars["day"], vars["year"])
   _, err = db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut)
