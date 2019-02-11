@@ -20,7 +20,7 @@ func main() {
   // CORS
   cors := cors.New(cors.Options{
     AllowedOrigins: []string{"*"},
-    AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+    AllowedMethods: []string{"GET", "POST", "OPTIONS", "PATCH"},
     AllowedHeaders: []string{"*"},
   })
   rCors := cors.Handler(r)
