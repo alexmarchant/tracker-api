@@ -15,6 +15,7 @@ type day struct {
   CaloriesIn *int `json:"caloriesIn,omitempty"`
   CaloriesOut *int `json:"caloriesOut,omitempty"`
   MilesRun *int `json:"milesRun,omitempty"`
+  Drinks *int `json:"drinks,omitempty"`
 }
 
 type daysReadResponse struct {
@@ -26,6 +27,7 @@ type daysUpdateRequest struct {
   CaloriesIn *int `json:"caloriesIn,omitempty"`
   CaloriesOut *int `json:"caloriesOut,omitempty"`
   MilesRun *int `json:"milesRun,omitempty"`
+  Drinks *int `json:"drinks,omitempty"`
 }
 
 func daysHandler(r *mux.Router) {
@@ -47,7 +49,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
 
   // Get calories
   query := `
-    SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out, miles_run
+    SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out, miles_run, drinks
     FROM days
     WHERE EXTRACT(YEAR FROM date) = $1 and EXTRACT(MONTH FROM date) = $2
   `
@@ -68,7 +70,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
   for rows.Next() {
     var aDay day
 
-    err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun)
+    err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun, &aDay.Drinks)
     if err != nil {
       w.WriteHeader(http.StatusInternalServerError)
       sendJson(w, errorResponse{ Error: "Error querying database" })
@@ -118,11 +120,11 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
   date := fmt.Sprintf("%s/%s/%s", vars["month"], vars["day"], vars["year"])
   var aDay day
   query := `
-    SELECT date, bmr, calories_in, calories_out, miles_run
+    SELECT date, bmr, calories_in, calories_out, miles_run, drinks
     FROM days
     WHERE date = $1
   `
-  err = db.QueryRow(query, date).Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun)
+  err = db.QueryRow(query, date).Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun, &aDay.Drinks)
   if err != nil {
     if err.Error() == "sql: no rows in result set" {
       createDay(date, body, w)
@@ -139,10 +141,10 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 func createDay(date string, body daysUpdateRequest, w http.ResponseWriter) {
   query := `
-    INSERT INTO days (date, bmr, calories_in, calories_out, miles_run) 
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO days (date, bmr, calories_in, calories_out, miles_run, drinks)
+    VALUES ($1, $2, $3, $4, $5, $6)
   `
-  _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.MilesRun)
+  _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.MilesRun, &body.Drinks)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
     sendJson(w, errorResponse{ Error: "Error creating day" })
@@ -173,6 +175,10 @@ func updateDay(date string, aDay day, body daysUpdateRequest, w http.ResponseWri
   if body.MilesRun != nil {
     queryParams = append(queryParams, body.MilesRun)
     querySet = append(querySet, fmt.Sprintf("miles_run = $%d", len(queryParams)))
+  }
+  if body.Drinks != nil {
+    queryParams = append(queryParams, body.Drinks)
+    querySet = append(querySet, fmt.Sprintf("drinks = $%d", len(queryParams)))
   }
 
   if len(queryParams) == 0 {
