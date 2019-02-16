@@ -6,7 +6,7 @@ import (
 )
 
 type errorResponse struct {
-  error string `json:"error"`
+  Error string `json:"error"`
 }
 
 func sendJson(w http.ResponseWriter, data interface{}) {

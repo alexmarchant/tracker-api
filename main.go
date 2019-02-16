@@ -14,8 +14,13 @@ func main() {
   // DB
   connectDB()
 
+	// Setup auth
+	getTokenSecret()
+
   // Routes
   daysHandler(r)
+  sessionsHandler(r)
+  usersHandler(r)
 
   // CORS
   cors := cors.New(cors.Options{

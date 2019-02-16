@@ -34,6 +34,15 @@ func daysHandler(r *mux.Router) {
 }
 
 func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
+  // Parse token info
+  _, err := getAuthTokenClaims(r)
+  if err != nil {
+    w.WriteHeader(http.StatusUnauthorized)
+    sendJson(w, errorResponse{ Error: "Invalid token" })
+    log.Printf("Invalid token: %v", err)
+    return
+  }
+
   vars := mux.Vars(r)
 
   // Get calories
@@ -48,7 +57,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
     vars["month"])
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ error: "Error querying database" })
+    sendJson(w, errorResponse{ Error: "Error querying database" })
     log.Printf("Error querying database: %v", err)
     return
   }
@@ -62,7 +71,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
     err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun)
     if err != nil {
       w.WriteHeader(http.StatusInternalServerError)
-      sendJson(w, errorResponse{ error: "Error querying database" })
+      sendJson(w, errorResponse{ Error: "Error querying database" })
       log.Printf("Error querying database: %v", err)
       return
     }
@@ -73,7 +82,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
   // Check iteration for errors
   if err := rows.Err(); err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ error: "Error querying database" })
+    sendJson(w, errorResponse{ Error: "Error querying database" })
     log.Printf("Error querying database: %v", err)
     return
   }
@@ -85,15 +94,24 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
+  // Parse token info
+  _, err := getAuthTokenClaims(r)
+  if err != nil {
+    w.WriteHeader(http.StatusUnauthorized)
+    sendJson(w, errorResponse{ Error: "Invalid token" })
+    log.Printf("Invalid token: %v", err)
+    return
+  }
+
   vars := mux.Vars(r)
 
   // Parse request
   decoder := json.NewDecoder(r.Body)
   var body daysUpdateRequest
-  err := decoder.Decode(&body)
+  err = decoder.Decode(&body)
   if err != nil {
     w.WriteHeader(http.StatusBadRequest)
-    sendJson(w, errorResponse{ error: "Error parsing request" })
+    sendJson(w, errorResponse{ Error: "Error parsing request" })
     log.Print("Error parsing request")
     return
   } // Get day
@@ -110,7 +128,7 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
       createDay(date, body, w)
     } else {
       w.WriteHeader(http.StatusInternalServerError)
-      sendJson(w, errorResponse{ error: "Error querying database" })
+      sendJson(w, errorResponse{ Error: "Error querying database" })
       log.Printf("Error querying database: %v", err)
     }
     return
@@ -127,7 +145,7 @@ func createDay(date string, body daysUpdateRequest, w http.ResponseWriter) {
   _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.MilesRun)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ error: "Error creating day" })
+    sendJson(w, errorResponse{ Error: "Error creating day" })
     log.Printf("Error creating day: %v", err)
     return
   }
@@ -169,7 +187,7 @@ func updateDay(date string, aDay day, body daysUpdateRequest, w http.ResponseWri
   _, err := db.Exec(query, queryParams...)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ error: "Error updating day" })
+    sendJson(w, errorResponse{ Error: "Error updating day" })
     log.Printf("Error updating day: %v", err)
     return
   }
