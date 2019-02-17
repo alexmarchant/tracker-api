@@ -14,8 +14,11 @@ type day struct {
   Bmr *int `json:"bmr,omitempty"`
   CaloriesIn *int `json:"caloriesIn,omitempty"`
   CaloriesOut *int `json:"caloriesOut,omitempty"`
+  CaloriesGoal *int `json:"caloriesGoal,omitempty"`
   MilesRun *int `json:"milesRun,omitempty"`
+  MilesRunGoal *int `json:"milesRunGoal,omitempty"`
   Drinks *int `json:"drinks,omitempty"`
+  DrinksGoal *int `json:"drinksGoal,omitempty"`
 }
 
 type daysReadResponse struct {
@@ -26,8 +29,11 @@ type daysUpdateRequest struct {
   Bmr *int `json:"bmr,omitempty"`
   CaloriesIn *int `json:"caloriesIn,omitempty"`
   CaloriesOut *int `json:"caloriesOut,omitempty"`
+  CaloriesGoal *int `json:"caloriesGoal,omitempty"`
   MilesRun *int `json:"milesRun,omitempty"`
+  MilesRunGoal *int `json:"milesRunGoal,omitempty"`
   Drinks *int `json:"drinks,omitempty"`
+  DrinksGoal *int `json:"drinksGoal,omitempty"`
 }
 
 func daysHandler(r *mux.Router) {
@@ -49,7 +55,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
 
   // Get calories
   query := `
-    SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out, miles_run, drinks
+    SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal
     FROM days
     WHERE EXTRACT(YEAR FROM date) = $1 and EXTRACT(MONTH FROM date) = $2
   `
@@ -70,7 +76,7 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
   for rows.Next() {
     var aDay day
 
-    err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun, &aDay.Drinks)
+    err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.CaloriesGoal, &aDay.MilesRun, &aDay.MilesRunGoal, &aDay.Drinks, &aDay.DrinksGoal)
     if err != nil {
       w.WriteHeader(http.StatusInternalServerError)
       sendJson(w, errorResponse{ Error: "Error querying database" })
@@ -120,11 +126,11 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
   date := fmt.Sprintf("%s/%s/%s", vars["month"], vars["day"], vars["year"])
   var aDay day
   query := `
-    SELECT date, bmr, calories_in, calories_out, miles_run, drinks
+    SELECT date, bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal
     FROM days
     WHERE date = $1
   `
-  err = db.QueryRow(query, date).Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.MilesRun, &aDay.Drinks)
+  err = db.QueryRow(query, date).Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.CaloriesGoal, &aDay.MilesRun, &aDay.MilesRunGoal, &aDay.Drinks, &aDay.DrinksGoal)
   if err != nil {
     if err.Error() == "sql: no rows in result set" {
       createDay(date, body, w)
@@ -141,10 +147,10 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 func createDay(date string, body daysUpdateRequest, w http.ResponseWriter) {
   query := `
-    INSERT INTO days (date, bmr, calories_in, calories_out, miles_run, drinks)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO days (date, bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `
-  _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.MilesRun, &body.Drinks)
+  _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.CaloriesGoal, &body.MilesRun, &body.MilesRunGoal, &body.Drinks, &body.DrinksGoal)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
     sendJson(w, errorResponse{ Error: "Error creating day" })
@@ -172,13 +178,25 @@ func updateDay(date string, aDay day, body daysUpdateRequest, w http.ResponseWri
     queryParams = append(queryParams, body.CaloriesOut)
     querySet = append(querySet, fmt.Sprintf("calories_out = $%d", len(queryParams)))
   }
+  if body.CaloriesGoal != nil {
+    queryParams = append(queryParams, body.CaloriesGoal)
+    querySet = append(querySet, fmt.Sprintf("calories_goal = $%d", len(queryParams)))
+  }
   if body.MilesRun != nil {
     queryParams = append(queryParams, body.MilesRun)
     querySet = append(querySet, fmt.Sprintf("miles_run = $%d", len(queryParams)))
   }
+  if body.MilesRunGoal != nil {
+    queryParams = append(queryParams, body.MilesRunGoal)
+    querySet = append(querySet, fmt.Sprintf("miles_run_goal = $%d", len(queryParams)))
+  }
   if body.Drinks != nil {
     queryParams = append(queryParams, body.Drinks)
     querySet = append(querySet, fmt.Sprintf("drinks = $%d", len(queryParams)))
+  }
+  if body.DrinksGoal != nil {
+    queryParams = append(queryParams, body.DrinksGoal)
+    querySet = append(querySet, fmt.Sprintf("drinks_goal = $%d", len(queryParams)))
   }
 
   if len(queryParams) == 0 {
