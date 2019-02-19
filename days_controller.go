@@ -73,12 +73,13 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
   res := db.Where("date = ?", date).First(&day)
   if res.RecordNotFound() {
     // Create the day if it doesn't exists
+    day.Date = date
     db.Create(&day)
   }
-  if res.Error != nil {
+  if res.Error != nil && !res.RecordNotFound() {
     w.WriteHeader(http.StatusInternalServerError)
     sendJson(w, errorResponse{ Error: "Error querying db" })
-    log.Printf("Error querying db: %v", err)
+    log.Printf("Error querying db: %v", res.Error)
     return
   }
 
