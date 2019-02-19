@@ -14,7 +14,7 @@ import (
 var tokenSecret string
 
 type tokenClaims struct {
-  Id int64 `json:"id"`
+  Id uint `json:"id"`
   Email string `json:"email"`
   jwt.StandardClaims
 }

@@ -4,36 +4,12 @@ import (
   "github.com/gorilla/mux"
   "encoding/json"
   "net/http"
-  "strings"
   "log"
   "fmt"
 )
 
-type day struct {
-  Date string `json:"date"`
-  Bmr *int `json:"bmr,omitempty"`
-  CaloriesIn *int `json:"caloriesIn,omitempty"`
-  CaloriesOut *int `json:"caloriesOut,omitempty"`
-  CaloriesGoal *int `json:"caloriesGoal,omitempty"`
-  MilesRun *int `json:"milesRun,omitempty"`
-  MilesRunGoal *int `json:"milesRunGoal,omitempty"`
-  Drinks *int `json:"drinks,omitempty"`
-  DrinksGoal *int `json:"drinksGoal,omitempty"`
-}
-
 type daysReadResponse struct {
-  Days []*day `json:"days"`
-}
-
-type daysUpdateRequest struct {
-  Bmr *int `json:"bmr,omitempty"`
-  CaloriesIn *int `json:"caloriesIn,omitempty"`
-  CaloriesOut *int `json:"caloriesOut,omitempty"`
-  CaloriesGoal *int `json:"caloriesGoal,omitempty"`
-  MilesRun *int `json:"milesRun,omitempty"`
-  MilesRunGoal *int `json:"milesRunGoal,omitempty"`
-  Drinks *int `json:"drinks,omitempty"`
-  DrinksGoal *int `json:"drinksGoal,omitempty"`
+  Days []*Day `json:"days"`
 }
 
 func daysHandler(r *mux.Router) {
@@ -53,47 +29,10 @@ func daysIndexHandler(w http.ResponseWriter, r *http.Request) {
 
   vars := mux.Vars(r)
 
-  // Get calories
-  query := `
-    SELECT TO_CHAR(date, 'MM/DD/YYYY'), bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal
-    FROM days
-    WHERE EXTRACT(YEAR FROM date) = $1 and EXTRACT(MONTH FROM date) = $2
-  `
-  rows, err := db.Query(
-    query,
-    vars["year"],
-    vars["month"])
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ Error: "Error querying database" })
-    log.Printf("Error querying database: %v", err)
-    return
-  }
-
-  var days = []*day{}
-
-  // Iterate over messages
-  for rows.Next() {
-    var aDay day
-
-    err := rows.Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.CaloriesGoal, &aDay.MilesRun, &aDay.MilesRunGoal, &aDay.Drinks, &aDay.DrinksGoal)
-    if err != nil {
-      w.WriteHeader(http.StatusInternalServerError)
-      sendJson(w, errorResponse{ Error: "Error querying database" })
-      log.Printf("Error querying database: %v", err)
-      return
-    }
-
-    days = append(days, &aDay)
-  }
-
-  // Check iteration for errors
-  if err := rows.Err(); err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ Error: "Error querying database" })
-    log.Printf("Error querying database: %v", err)
-    return
-  }
+  // Get days
+  var days []*Day
+  query := "EXTRACT(YEAR FROM date) = ? and EXTRACT(MONTH FROM date) = ?"
+  db.Where(query, vars["year"], vars["month"]).Find(&days)
 
   // Respond
   response := daysReadResponse{ Days: days }
@@ -115,106 +54,100 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
   // Parse request
   decoder := json.NewDecoder(r.Body)
-  var body daysUpdateRequest
+  var body map[string]*int
   err = decoder.Decode(&body)
   if err != nil {
     w.WriteHeader(http.StatusBadRequest)
     sendJson(w, errorResponse{ Error: "Error parsing request" })
     log.Print("Error parsing request")
     return
-  } // Get day
-  date := fmt.Sprintf("%s/%s/%s", vars["month"], vars["day"], vars["year"])
-  var aDay day
-  query := `
-    SELECT date, bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal
-    FROM days
-    WHERE date = $1
-  `
-  err = db.QueryRow(query, date).Scan(&aDay.Date, &aDay.Bmr, &aDay.CaloriesIn, &aDay.CaloriesOut, &aDay.CaloriesGoal, &aDay.MilesRun, &aDay.MilesRunGoal, &aDay.Drinks, &aDay.DrinksGoal)
-  if err != nil {
-    if err.Error() == "sql: no rows in result set" {
-      createDay(date, body, w)
+  }
+
+  // Find day
+  date := fmt.Sprintf(
+    "%s/%s/%s",
+    vars["month"],
+    vars["day"],
+    vars["year"])
+  var day = &Day{}
+  res := db.Where("date = ?", date).First(&day)
+  if res.RecordNotFound() {
+    // Create the day if it doesn't exists
+    db.Create(&day)
+  }
+  if res.Error != nil {
+    w.WriteHeader(http.StatusInternalServerError)
+    sendJson(w, errorResponse{ Error: "Error querying db" })
+    log.Printf("Error querying db: %v", err)
+    return
+  }
+
+  // Update values
+  if val, ok := body["bmr"]; ok {
+    if val == nil {
+      day.Bmr = nil
     } else {
-      w.WriteHeader(http.StatusInternalServerError)
-      sendJson(w, errorResponse{ Error: "Error querying database" })
-      log.Printf("Error querying database: %v", err)
+      day.Bmr = val
     }
-    return
+  }
+  if val, ok := body["caloriesIn"]; ok {
+    if val == nil {
+      day.CaloriesIn = nil
+    } else {
+      day.CaloriesIn = val
+    }
+  }
+  if val, ok := body["caloriesOut"]; ok {
+    if val == nil {
+      day.CaloriesOut = nil
+    } else {
+      day.CaloriesOut = val
+    }
+  }
+  if val, ok := body["caloriesGoal"]; ok {
+    if val == nil {
+      day.CaloriesGoal = nil
+    } else {
+      day.CaloriesGoal = val
+    }
+  }
+  if val, ok := body["milesRun"]; ok {
+    if val == nil {
+      day.MilesRun = nil
+    } else {
+      day.MilesRun = val
+    }
+  }
+  if val, ok := body["milesRunGoal"]; ok {
+    if val == nil {
+      day.MilesRunGoal = nil
+    } else {
+      day.MilesRunGoal = val
+    }
+  }
+  if val, ok := body["drinks"]; ok {
+    if val == nil {
+      day.Drinks = nil
+    } else {
+      day.Drinks = val
+    }
+  }
+  if val, ok := body["drinksGoal"]; ok {
+    if val == nil {
+      day.DrinksGoal = nil
+    } else {
+      day.DrinksGoal = val
+    }
   }
 
-  updateDay(date, aDay, body, w)
-}
-
-func createDay(date string, body daysUpdateRequest, w http.ResponseWriter) {
-  query := `
-    INSERT INTO days (date, bmr, calories_in, calories_out, calories_goal, miles_run, miles_run_goal, drinks, drinks_goal)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-  `
-  _, err := db.Exec(query, date, &body.Bmr, &body.CaloriesIn, &body.CaloriesOut, &body.CaloriesGoal, &body.MilesRun, &body.MilesRunGoal, &body.Drinks, &body.DrinksGoal)
-  if err != nil {
+  // Update record
+  if err := db.Save(&day).Error; err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ Error: "Error creating day" })
-    log.Printf("Error creating day: %v", err)
+    sendJson(w, errorResponse{ Error: "Error updating db" })
+    log.Printf("Error updating db: %v", err)
     return
   }
 
-  w.WriteHeader(http.StatusCreated)
-}
-
-func updateDay(date string, aDay day, body daysUpdateRequest, w http.ResponseWriter) {
-  query := "UPDATE days SET "
-  var querySet []string
-  var queryParams []interface{}
-
-  if body.Bmr != nil {
-    queryParams = append(queryParams, body.Bmr)
-    querySet = append(querySet, fmt.Sprintf("bmr = $%d", len(queryParams)))
-  }
-  if body.CaloriesIn != nil {
-    queryParams = append(queryParams, body.CaloriesIn)
-    querySet = append(querySet, fmt.Sprintf("calories_in = $%d", len(queryParams)))
-  }
-  if body.CaloriesOut != nil {
-    queryParams = append(queryParams, body.CaloriesOut)
-    querySet = append(querySet, fmt.Sprintf("calories_out = $%d", len(queryParams)))
-  }
-  if body.CaloriesGoal != nil {
-    queryParams = append(queryParams, body.CaloriesGoal)
-    querySet = append(querySet, fmt.Sprintf("calories_goal = $%d", len(queryParams)))
-  }
-  if body.MilesRun != nil {
-    queryParams = append(queryParams, body.MilesRun)
-    querySet = append(querySet, fmt.Sprintf("miles_run = $%d", len(queryParams)))
-  }
-  if body.MilesRunGoal != nil {
-    queryParams = append(queryParams, body.MilesRunGoal)
-    querySet = append(querySet, fmt.Sprintf("miles_run_goal = $%d", len(queryParams)))
-  }
-  if body.Drinks != nil {
-    queryParams = append(queryParams, body.Drinks)
-    querySet = append(querySet, fmt.Sprintf("drinks = $%d", len(queryParams)))
-  }
-  if body.DrinksGoal != nil {
-    queryParams = append(queryParams, body.DrinksGoal)
-    querySet = append(querySet, fmt.Sprintf("drinks_goal = $%d", len(queryParams)))
-  }
-
-  if len(queryParams) == 0 {
-    w.WriteHeader(http.StatusOK)
-    return
-  }
-
-  query += strings.Join(querySet, ", ")
-  queryParams = append(queryParams, date)
-  query += fmt.Sprintf(" WHERE date = $%d", len(queryParams))
-
-  _, err := db.Exec(query, queryParams...)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ Error: "Error updating day" })
-    log.Printf("Error updating day: %v", err)
-    return
-  }
-
+  // Respond
   w.WriteHeader(http.StatusOK)
 }

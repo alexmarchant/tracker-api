@@ -11,18 +11,13 @@ func usersHandler(r *mux.Router) {
   r.HandleFunc("/users", usersCreateHandler).Methods("POST")
 }
 
-type usersCreateRequest struct {
-  Email string `json:"email"`
-  Password string `json:"password"`
-  PasswordConfirmation string `json:"passwordConfirmation"`
-}
-
-type usersCreateResponse struct {
-  Token string `json:"token"`
-}
-
 func usersCreateHandler(w http.ResponseWriter, r *http.Request) {
   // Parse request
+  type usersCreateRequest struct {
+    Email string `json:"email"`
+    Password string `json:"password"`
+    PasswordConfirmation string `json:"passwordConfirmation"`
+  }
   decoder := json.NewDecoder(r.Body)
   var body usersCreateRequest
   err := decoder.Decode(&body)
@@ -58,9 +53,8 @@ func usersCreateHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   // Check if user exists
-  var id int64
-  err = db.QueryRow("SELECT id FROM users WHERE email = $1", body.Email).Scan(&id)
-  if err == nil {
+  var user *User
+  if !db.Where("email = ?", body.Email).First(&user).RecordNotFound() {
     w.WriteHeader(http.StatusBadRequest)
     sendJson(w, errorResponse{ Error: "User already exists" })
     log.Print("User already exists")
@@ -71,17 +65,13 @@ func usersCreateHandler(w http.ResponseWriter, r *http.Request) {
   passwordHash := hashAndSalt(body.Password)
 
   // Create user
-  err = db.QueryRow("INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id", body.Email, passwordHash).Scan(&id)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    sendJson(w, errorResponse{ Error: "Error writing user data to database" })
-    log.Printf("Error writing user data to database: %v", err)
-    return
-  }
+  user.Email = body.Email
+  user.PasswordHash = passwordHash
+  db.Create(&user)
 
   // Create JWT Token
   claims := &tokenClaims{
-    Id: id,
+    Id: user.ID,
     Email: body.Email,
   }
   token, err := makeToken(claims)
@@ -93,6 +83,9 @@ func usersCreateHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   // Respond
+  type usersCreateResponse struct {
+    Token string `json:"token"`
+  }
   w.WriteHeader(http.StatusCreated)
   sendJson(w, usersCreateResponse{ Token: token })
 }

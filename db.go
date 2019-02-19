@@ -1,13 +1,13 @@
 package main
 
 import (
-	"database/sql"
-	_ "github.com/lib/pq"
+  "github.com/jinzhu/gorm"
+  _ "github.com/jinzhu/gorm/dialects/postgres"
   "os"
   "log"
 )
 
-var db *sql.DB
+var db *gorm.DB
 
 func connectDB() {
   pgURL := os.Getenv("PG_URL")
@@ -15,17 +15,17 @@ func connectDB() {
     log.Fatal("Missing PG_URL")
   }
 
-  // Create connection pointer
+  // Connect
   var err error
-  db, err = sql.Open("postgres", pgURL)
+  db, err = gorm.Open("postgres", pgURL)
   if err != nil {
-    log.Fatal(err)
+    panic("failed to connect database")
   }
 
-  // Actually establish connection
-  err = db.Ping()
-  if err != nil {
-    log.Print("Error connecting to database:")
-    log.Fatal(err)
-  }
+  // Config
+  db.LogMode(true)
+
+  // Migrate the schema
+  db.AutoMigrate(&Day{})
+  db.AutoMigrate(&User{})
 }
