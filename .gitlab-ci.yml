@@ -15,7 +15,7 @@ stages:
 before_script:
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
   # Request kubconfig
-  - curl -o kubeconfig.yml -H "Authorization: Bearer $DO_TOKEN" "https://api.digitalocean.com/v2/kubernetes/clusters/7037db59-1761-450d-9986-6f0155733573/kubeconfig"
+  - 'curl -o kubeconfig.yml -H "Authorization: Bearer $DO_TOKEN" "https://api.digitalocean.com/v2/kubernetes/clusters/7037db59-1761-450d-9986-6f0155733573/kubeconfig"'
 
 build:
   stage: build
