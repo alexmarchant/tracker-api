@@ -140,6 +140,30 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
       day.DrinksGoal = val
     }
   }
+  if val, ok := body["mood"]; ok {
+    if val == nil {
+      day.Mood = nil
+    } else {
+      if *val < 0 || *val > 10 {
+        w.WriteHeader(http.StatusBadRequest)
+        sendJson(w, errorResponse{ Error: "Invalid value for mood" })
+        return
+      }
+      day.Mood = val
+    }
+  }
+  if val, ok := body["energy"]; ok {
+    if val == nil {
+      day.Energy = nil
+    } else {
+      if *val < 0 || *val > 10 {
+        w.WriteHeader(http.StatusBadRequest)
+        sendJson(w, errorResponse{ Error: "Invalid value for energy" })
+        return
+      }
+      day.Energy = val
+    }
+  }
 
   // Update record
   if err := db.Save(&day).Error; err != nil {
@@ -152,3 +176,4 @@ func daysUpdateHandler(w http.ResponseWriter, r *http.Request) {
   // Respond
   w.WriteHeader(http.StatusOK)
 }
+

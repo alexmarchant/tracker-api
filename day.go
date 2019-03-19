@@ -18,4 +18,6 @@ type Day struct {
   MilesRunGoal *int `json:"milesRunGoal,omitempty"`
   Drinks *int `json:"drinks,omitempty"`
   DrinksGoal *int `json:"drinksGoal,omitempty"`
+  Mood *int `json:"mood,omitempty"`
+  Energy *int `json:"energy,omitempty"`
 }
