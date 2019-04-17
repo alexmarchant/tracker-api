@@ -16,8 +16,9 @@ before_script:
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
   # Setup kubectl
   - echo $GCLOUD_AUTH | base64 --decode > gcloud-auth.json
-  - export GOOGLE_APPLICATION_CREDENTIALS="./gcloud-auth.json"
-  - gcloud container clusters get-credentials alexmarchant-com
+  - gcloud auth activate-service-account --key-file ./gcloud-auth.json
+  - gcloud config set project websites-236502
+  - gcloud container clusters get-credentials alexmarchant-com --zone us-central1-a
 
 build:
   stage: build
@@ -30,4 +31,4 @@ build:
 release:
   stage: release
   script:
-    - kubectl --kubeconfig="kubeconfig.yml" patch deployment tracker-api -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
+    - kubectl patch deployment tracker-api -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"date\":\"`date +'%s'`\"}}}}}"
