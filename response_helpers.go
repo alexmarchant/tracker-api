@@ -1,15 +1,15 @@
 package main
 
 import (
-  "net/http"
-  "encoding/json"
+	"encoding/json"
+	"net/http"
 )
 
 type errorResponse struct {
-  Error string `json:"error"`
+	Error string `json:"error"`
 }
 
 func sendJson(w http.ResponseWriter, data interface{}) {
-  w.Header().Set("Content-Type", "application/json")
-  json.NewEncoder(w).Encode(data)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }
