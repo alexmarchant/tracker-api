@@ -109,7 +109,7 @@ func importCreateHandler(w http.ResponseWriter, r *http.Request) {
 			// Check if exists
 			if dbDateString == dateString {
 				// Check if unchanged, skip if so
-				if *dbDay.Weight == weight {
+				if dbDay.Weight != nil && *dbDay.Weight == weight {
 					exists = true
 					continue
 				}
